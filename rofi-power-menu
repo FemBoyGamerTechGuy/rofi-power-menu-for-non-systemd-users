@@ -39,12 +39,12 @@ icons[cancel]="\Uf0156"
 
 declare -A actions
 actions[lockscreen]="loginctl lock-session ${XDG_SESSION_ID-}"
-#actions[switchuser]="???"
+# actions[switchuser]="???"
 actions[logout]="loginctl terminate-session ${XDG_SESSION_ID-}"
-actions[suspend]="systemctl suspend"
-actions[hibernate]="systemctl hibernate"
-actions[reboot]="systemctl reboot"
-actions[shutdown]="systemctl poweroff"
+actions[suspend]="loginctl suspend"
+actions[hibernate]="loginctl hibernate"
+actions[reboot]="loginctl reboot"
+actions[shutdown]="loginctl poweroff"
 
 # By default, ask for confirmation for actions that are irreversible
 confirmations=(reboot shutdown logout)
@@ -208,9 +208,7 @@ do
 done
 for entry in "${all[@]}"
 do
-    # Add zero-width space character (\u200b) to icon to ensure confirmation-
-    # and regular messages never collide.
-    confirmationMessages[$entry]=$(write_message "${icons[$entry]}\u200b" "Yes, ${texts[$entry]}")
+    confirmationMessages[$entry]=$(write_message "${icons[$entry]}" "Yes, ${texts[$entry]}")
 done
 confirmationMessages[cancel]=$(write_message "${icons[cancel]}" "No, cancel")
 
@@ -255,28 +253,37 @@ else
                     exit 0
                 fi
             done
-            # If not, then no confirmation is required, so mark confirmed
-            selection=$(print_selection "${confirmationMessages[$entry]}")
-        fi
-        if [ "$selection" = "$(print_selection "${confirmationMessages[$entry]}")" ]
-        then
-            if [ $dryrun = true ]
+            # No confirmation required, perform the action
+            if [ "$dryrun" = "true" ]
             then
-                # Tell what would have been done
-                echo "Selected: $entry" >&2
+                echo "Selected: ${actions[$entry]}" >&2
             else
-                # Perform the action
                 ${actions[$entry]}
             fi
             exit 0
         fi
-        if [ "$selection" = "$(print_selection "${confirmationMessages[cancel]}")" ]
+    done
+    # Check if the selection matches a confirmation message (Yes, ...)
+    for entry in "${show[@]}"
+    do
+        if [ "$selection" = "$(print_selection "${confirmationMessages[$entry]}")" ]
         then
-            # Do nothing
+            if [ "$dryrun" = "true" ]
+            then
+                echo "Selected: ${actions[$entry]}" >&2
+            else
+                ${actions[$entry]}
+            fi
             exit 0
         fi
     done
-    # The selection didn't match anything, so raise an error
-    echo "Invalid selection: $selection" >&2
-    exit 1
+    # If cancel was selected, restart the menu
+    if [ "$selection" = "$(print_selection "${confirmationMessages[cancel]}")" ]
+    then
+        echo -e "\0prompt\x1fPower menu"
+        for entry in "${show[@]}"
+        do
+            echo -e "${messages[$entry]}\0icon\x1f${icons[$entry]}"
+        done
+    fi
 fi
