@@ -1,0 +1,1 @@
+# First create a folder emtpy with it put the "PKGBUILD" in there then on any distro using pacman do (makepkg -si) thats how you install it
